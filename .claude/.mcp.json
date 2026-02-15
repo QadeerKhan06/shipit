@@ -1,0 +1,24 @@
+{
+  "mcpServers": {
+    "mongodb": {
+      "command": "npx",
+      "args": ["-y", "mongodb-mcp-server@latest"],
+      "platforms": {
+        "win32": {
+          "command": "cmd",
+          "args": ["/c", "npx", "-y", "mongodb-mcp-server@latest"]
+        }
+      }
+    },
+    "tailwindcss": {
+      "command": "npx",
+      "args": ["-y", "tailwindcss-mcp-server"],
+      "platforms": {
+        "win32": {
+          "command": "cmd",
+          "args": ["/c", "npx", "-y", "tailwindcss-mcp-server"]
+        }
+      }
+    }
+  }
+}

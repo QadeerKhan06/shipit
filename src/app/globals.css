@@ -1,0 +1,27 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-text-primary;
+  }
+}
+
+@layer utilities {
+  .terminal-border {
+    @apply border border-border rounded-sm;
+  }
+
+  .terminal-box {
+    @apply terminal-border bg-surface p-4;
+  }
+
+  .terminal-header {
+    @apply font-mono text-sm text-text-secondary border-b border-border pb-2 mb-4;
+  }
+}

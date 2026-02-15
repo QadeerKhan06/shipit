@@ -1,0 +1,192 @@
+import { flashModel } from './gemini'
+import {
+  searchCompetitors,
+  searchMarketData,
+  searchUserComplaints,
+  searchRegulatory,
+  searchCaseStudies
+} from './serper'
+import type { ResearchContext, SearchResult } from '@/types/research'
+import type { Tool, FunctionDeclarationSchema } from '@google/generative-ai'
+import { SchemaType } from '@google/generative-ai'
+
+// Shared parameter schema for all search functions
+const queryParam = {
+  type: SchemaType.OBJECT,
+  properties: {
+    query: {
+      type: SchemaType.STRING,
+      description: 'Search query',
+    }
+  },
+  required: ['query']
+} as FunctionDeclarationSchema
+
+// Function declarations for Gemini function calling
+const searchTools: Tool[] = [
+  {
+    functionDeclarations: [
+      {
+        name: 'search_competitors',
+        description: 'Search for competitors in this market, their funding, pricing, and positioning',
+        parameters: queryParam
+      },
+      {
+        name: 'search_market_data',
+        description: 'Search for market size, growth trends, TAM/SAM/SOM data',
+        parameters: queryParam
+      },
+      {
+        name: 'search_user_complaints',
+        description: 'Search for user complaints, reviews, and pain points about existing solutions',
+        parameters: queryParam
+      },
+      {
+        name: 'search_regulatory',
+        description: 'Search for regulatory requirements, licensing, and compliance in this industry',
+        parameters: queryParam
+      },
+      {
+        name: 'search_case_studies',
+        description: 'Search for similar startups that succeeded, failed, pivoted, or were acquired',
+        parameters: queryParam
+      }
+    ]
+  }
+]
+
+// Execute a function call from Gemini
+async function executeFunction(name: string, args: Record<string, string>): Promise<SearchResult[]> {
+  const query = args.query || ''
+
+  switch (name) {
+    case 'search_competitors':
+      return searchCompetitors(query)
+    case 'search_market_data':
+      return searchMarketData(query)
+    case 'search_user_complaints':
+      return searchUserComplaints(query)
+    case 'search_regulatory':
+      return searchRegulatory(query)
+    case 'search_case_studies':
+      return searchCaseStudies(query)
+    default:
+      return []
+  }
+}
+
+/**
+ * Stage 1: Research
+ *
+ * Uses Gemini with function calling to orchestrate web searches via Serper,
+ * then synthesizes results into a structured ResearchContext.
+ */
+export async function conductResearch(idea: string): Promise<ResearchContext> {
+  const allSearchResults: SearchResult[] = []
+
+  // Start chat with Gemini, giving it search tools
+  const chat = flashModel.startChat({
+    tools: searchTools,
+  })
+
+  const researchPrompt = `You are a startup research analyst. A user wants to build: "${idea}"
+
+Your job is to thoroughly research this startup idea using the search tools available to you. You MUST call the search tools to gather real data. Make multiple searches to cover:
+
+1. **Competitors** — Who are the main competitors? What's their funding, pricing, market position?
+2. **Market data** — How big is this market? What are the growth trends?
+3. **User complaints** — What do users complain about with existing solutions? What pain points exist?
+4. **Regulatory** — Are there any licensing, compliance, or regulatory requirements?
+5. **Case studies** — Have similar startups succeeded or failed? What can we learn?
+
+Make at least 5 different searches across these categories. Be specific with your search queries based on the startup idea.`
+
+  // Send the initial prompt
+  let result = await chat.sendMessage(researchPrompt)
+
+  // Process function calls in a loop (Gemini may make multiple)
+  let iterations = 0
+  const maxIterations = 12 // Safety limit
+
+  while (iterations < maxIterations) {
+    const response = result.response
+    const calls = response.functionCalls()
+
+    if (!calls || calls.length === 0) break
+
+    // Execute all function calls
+    const functionResponses = await Promise.all(
+      calls.map(async (call) => {
+        const results = await executeFunction(call.name, call.args as Record<string, string>)
+        allSearchResults.push(...results)
+        return {
+          functionResponse: {
+            name: call.name,
+            response: { results: results.map(r => ({ title: r.title, snippet: r.snippet, link: r.link })) }
+          }
+        }
+      })
+    )
+
+    // Send results back to Gemini
+    result = await chat.sendMessage(functionResponses)
+    iterations++
+  }
+
+  // Now ask Gemini to synthesize the research into structured data
+  const synthesisPrompt = `Based on all the research you've gathered, synthesize your findings into a structured JSON object with these exact fields:
+
+{
+  "competitors": [
+    { "name": "...", "description": "...", "funding": "...", "pricing": "...", "strengths": ["..."], "weaknesses": ["..."] }
+  ],
+  "market": {
+    "marketSize": "...",
+    "growthRate": "...",
+    "keyTrends": ["..."],
+    "targetDemographics": ["..."]
+  },
+  "userComplaints": [
+    { "source": "...", "content": "...", "theme": "..." }
+  ],
+  "caseStudies": [
+    { "name": "...", "outcome": "succeeded/failed/acquired/pivoted", "keyDetails": "...", "lesson": "..." }
+  ],
+  "regulatory": [
+    { "area": "...", "requirements": "...", "complexity": "Low/Medium/High" }
+  ]
+}
+
+Include 3-5 competitors, 3-5 user complaints, 2-3 case studies, and any relevant regulatory info. Base everything on the actual search results, not hypotheticals. Return ONLY the JSON object.`
+
+  const synthesisResult = await chat.sendMessage(synthesisPrompt)
+  const synthesisText = synthesisResult.response.text()
+
+  // Parse the synthesized research
+  let parsed
+  try {
+    // Strip markdown code fences if present
+    const cleaned = synthesisText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+    parsed = JSON.parse(cleaned)
+  } catch {
+    console.error('Failed to parse research synthesis, using defaults')
+    parsed = {
+      competitors: [],
+      market: { marketSize: 'Unknown', growthRate: 'Unknown', keyTrends: [], targetDemographics: [] },
+      userComplaints: [],
+      caseStudies: [],
+      regulatory: []
+    }
+  }
+
+  return {
+    idea,
+    competitors: parsed.competitors || [],
+    market: parsed.market || { marketSize: 'Unknown', growthRate: 'Unknown', keyTrends: [], targetDemographics: [] },
+    userComplaints: parsed.userComplaints || [],
+    caseStudies: parsed.caseStudies || [],
+    regulatory: parsed.regulatory || [],
+    rawSearchResults: allSearchResults,
+    timestamp: new Date().toISOString()
+  }
+}
