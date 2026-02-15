@@ -208,11 +208,11 @@ Use these sources to ground your workforceCapacity numbers. Extract real statist
       ]
     },
     "jobPostingsTrend": [
-      { "year": "2020", "postings": 1200 },
-      { "year": "2021", "postings": 1800 },
-      { "year": "2022", "postings": 2400 },
-      { "year": "2023", "postings": 2900 },
-      { "year": "2024", "postings": 3400 }
+      { "year": "2021", "postings": 1200 },
+      { "year": "2022", "postings": 1800 },
+      { "year": "2023", "postings": 2400 },
+      { "year": "2024", "postings": 2900 },
+      { "year": "2025", "postings": 3400 }
     ],
     "regulatoryLandscape": [
       { "state": "CA", "complexity": "High", "licensing": "Required", "notes": "CCPA data privacy requirements apply to consumer data collection" },
@@ -242,7 +242,7 @@ IMPORTANT:
 - fundingTotal: total VC funding in this market. Use a realistic aggregate from research data.
 - fundingActivity.recentRounds: 3-4 real funding rounds. Use ACTUAL company names and amounts from research. If uncertain, use "Undisclosed" for amount.
 - TAM/SAM/SOM: raw numbers (e.g., 50000000000 for $50B). CRITICAL: TAM > SAM > SOM > 0 always.
-- jobPostingsTrend: 5 data points from 2020-2024. Ground in the job posting sources above.
+- jobPostingsTrend: 5 data points from 2021-2025. Ground in the job posting sources above.
 - regulatoryLandscape: 3-4 entries with specific regulation descriptions.
 - hypeVsReality: 5-6 data points. If Google Trends data is provided, use those values for "hype".
 

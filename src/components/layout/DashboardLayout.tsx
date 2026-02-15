@@ -157,6 +157,12 @@ const SectionContent = ({ activeSection }: { activeSection: SectionName }) => {
 // ============================================================================
 export const DashboardLayout = () => {
   const { activeSection } = useSimulation()
+  const mainRef = React.useRef<HTMLElement>(null)
+
+  // Scroll to top when switching sections
+  React.useEffect(() => {
+    mainRef.current?.scrollTo({ top: 0 })
+  }, [activeSection])
 
   return (
     <div style={{
@@ -172,7 +178,7 @@ export const DashboardLayout = () => {
       <LeftNav />
 
       {/* MAIN CONTENT */}
-      <main style={{ flex: 1, overflowY: 'auto' }}>
+      <main ref={mainRef} style={{ flex: 1, overflowY: 'auto' }}>
         <div style={{ padding: '2rem' }}>
           <React.Suspense fallback={<SectionSkeleton section={activeSection} />}>
             <SectionContent activeSection={activeSection} />

@@ -1,8 +1,9 @@
 'use client'
 
-import React from 'react'
+import React, { useState, useCallback } from 'react'
 import { colors } from '@/components/ui/colors'
 import { useSimulation } from '@/contexts/SimulationContext'
+import { exportToPDF, exportToCSV, exportToBoard } from '@/lib/export'
 import type { SectionName, SectionLoadStatus } from '@/types/simulation'
 
 const sections: { id: SectionName; label: string }[] = [
@@ -13,11 +14,7 @@ const sections: { id: SectionName; label: string }[] = [
   { id: 'advisors', label: 'Advisors' }
 ]
 
-const exportButtons = [
-  { icon: '📄', label: 'PDF', tooltip: 'Export PDF Report' },
-  { icon: '📋', label: 'Board', tooltip: 'Export to Trello/Notion' },
-  { icon: '📊', label: 'CSV', tooltip: 'Export Raw Data' }
-]
+type ExportStatus = 'idle' | 'loading' | 'done'
 
 function getStatusIcon(status: SectionLoadStatus): { icon: string; color: string; className?: string } {
   switch (status) {
@@ -32,8 +29,44 @@ export const LeftNav = () => {
   const {
     activeSection,
     setActiveSection,
-    sectionStatus
+    sectionStatus,
+    simulation,
+    pipelineStatus,
+    reportId
   } = useSimulation()
+
+  const [exportStatus, setExportStatus] = useState<Record<string, ExportStatus>>({
+    PDF: 'idle',
+    Board: 'idle',
+    CSV: 'idle'
+  })
+
+  const canExport = pipelineStatus === 'complete' && !!simulation?.name
+
+  const handleExport = useCallback(async (label: string) => {
+    if (!canExport || !simulation) return
+
+    setExportStatus(prev => ({ ...prev, [label]: 'loading' }))
+
+    try {
+      switch (label) {
+        case 'PDF':
+          await exportToPDF(simulation, reportId ?? null)
+          break
+        case 'Board':
+          await exportToBoard(simulation)
+          break
+        case 'CSV':
+          exportToCSV(simulation)
+          break
+      }
+      setExportStatus(prev => ({ ...prev, [label]: 'done' }))
+      setTimeout(() => setExportStatus(prev => ({ ...prev, [label]: 'idle' })), 1500)
+    } catch (err) {
+      console.error(`Export ${label} failed:`, err)
+      setExportStatus(prev => ({ ...prev, [label]: 'idle' }))
+    }
+  }, [canExport, simulation, reportId])
 
   return (
     <div style={{
@@ -106,39 +139,56 @@ export const LeftNav = () => {
           EXPORT
         </div>
         <div style={{ display: 'flex', gap: '0.25rem' }}>
-          {exportButtons.map((btn) => (
-            <button
-              key={btn.label}
-              title={btn.tooltip}
-              style={{
-                flex: 1,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '0.125rem',
-                padding: '0.5rem 0.25rem',
-                fontFamily: 'JetBrains Mono, monospace',
-                fontSize: '0.6rem',
-                backgroundColor: colors.surface,
-                color: colors.textSecondary,
-                border: `1px solid ${colors.border}`,
-                borderRadius: '2px',
-                cursor: 'pointer',
-                transition: 'all 0.2s'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = colors.cyan
-                e.currentTarget.style.color = colors.cyan
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = colors.border
-                e.currentTarget.style.color = colors.textSecondary
-              }}
-            >
-              <span style={{ fontSize: '1rem' }}>{btn.icon}</span>
-              <span>{btn.label}</span>
-            </button>
-          ))}
+          {([
+            { icon: '📄', label: 'PDF', tooltip: 'Export PDF Report' },
+            { icon: '📋', label: 'Board', tooltip: 'Copy to Clipboard' },
+            { icon: '📊', label: 'CSV', tooltip: 'Export Raw Data' }
+          ] as const).map((btn) => {
+            const status = exportStatus[btn.label]
+            const icon = status === 'loading' ? '⏳' : status === 'done' ? '✓' : btn.icon
+            const statusLabel = status === 'done' && btn.label === 'Board' ? 'Copied' : btn.label
+
+            return (
+              <button
+                key={btn.label}
+                title={btn.tooltip}
+                disabled={!canExport || status === 'loading'}
+                onClick={() => handleExport(btn.label)}
+                style={{
+                  flex: 1,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '0.125rem',
+                  padding: '0.5rem 0.25rem',
+                  fontFamily: 'JetBrains Mono, monospace',
+                  fontSize: '0.6rem',
+                  backgroundColor: colors.surface,
+                  color: !canExport ? colors.textDim : status === 'done' ? colors.green : colors.textSecondary,
+                  border: `1px solid ${status === 'done' ? colors.green : colors.border}`,
+                  borderRadius: '2px',
+                  cursor: canExport && status !== 'loading' ? 'pointer' : 'not-allowed',
+                  opacity: canExport ? 1 : 0.5,
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => {
+                  if (canExport && status === 'idle') {
+                    e.currentTarget.style.borderColor = colors.cyan
+                    e.currentTarget.style.color = colors.cyan
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (status === 'idle') {
+                    e.currentTarget.style.borderColor = colors.border
+                    e.currentTarget.style.color = canExport ? colors.textSecondary : colors.textDim
+                  }
+                }}
+              >
+                <span style={{ fontSize: '1rem' }}>{icon}</span>
+                <span>{statusLabel}</span>
+              </button>
+            )
+          })}
         </div>
       </div>
 
