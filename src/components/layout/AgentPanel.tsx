@@ -8,65 +8,149 @@ import type { SectionName, PipelineMessage } from '@/types/simulation'
 
 const ALL_SECTIONS: SectionName[] = ['vision', 'market', 'battlefield', 'verdict', 'advisors']
 
-// Render text with clickable links (handles [text](url), bare URLs, and **bold**)
-function renderMessageContent(text: string): React.ReactNode[] {
-  // Combined pattern: markdown links, bare URLs, bold text
+// Parse a "Sources:" line into structured source objects
+function parseSources(sourcesText: string): { title: string; url: string }[] {
+  const sources: { title: string; url: string }[] = []
+  // Pattern: Title (url) or [Title](url)
+  // Split by comma-separated entries, each having title + url
+  const mdLinkPattern = /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g
+  const titleUrlPattern = /([^,(]+?)\s*\((https?:\/\/[^)]+)\)/g
+
+  // Try markdown links first
+  let match: RegExpExecArray | null
+  while ((match = mdLinkPattern.exec(sourcesText)) !== null) {
+    sources.push({ title: match[1].trim(), url: match[2].trim() })
+  }
+
+  if (sources.length > 0) return sources
+
+  // Fall back to Title (url) pattern
+  while ((match = titleUrlPattern.exec(sourcesText)) !== null) {
+    sources.push({ title: match[1].trim(), url: match[2].trim() })
+  }
+
+  return sources
+}
+
+// Render inline text with clickable links and **bold**
+function renderInlineText(text: string): React.ReactNode[] {
   const pattern = /(\[([^\]]+)\]\((https?:\/\/[^)]+)\))|(https?:\/\/[^\s,)]+)|(\*\*([^*]+)\*\*)/g
   const nodes: React.ReactNode[] = []
   let lastIndex = 0
   let match: RegExpExecArray | null
 
   while ((match = pattern.exec(text)) !== null) {
-    // Push text before this match
     if (match.index > lastIndex) {
       nodes.push(text.slice(lastIndex, match.index))
     }
 
     if (match[1]) {
-      // Markdown link [text](url)
       nodes.push(
-        <a
-          key={match.index}
-          href={match[3]}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{ color: colors.cyan, textDecoration: 'underline', textUnderlineOffset: '2px' }}
-        >
-          {match[2]}
-        </a>
+        <a key={match.index} href={match[3]} target="_blank" rel="noopener noreferrer"
+          style={{ color: colors.cyan, textDecoration: 'underline', textUnderlineOffset: '2px' }}>{match[2]}</a>
       )
     } else if (match[4]) {
-      // Bare URL
-      const url = match[4]
-      // Clean trailing punctuation
-      const cleanUrl = url.replace(/[.,;:!?)]+$/, '')
-      const trailing = url.slice(cleanUrl.length)
+      const cleanUrl = match[4].replace(/[.,;:!?)]+$/, '')
+      const trailing = match[4].slice(cleanUrl.length)
       nodes.push(
-        <a
-          key={match.index}
-          href={cleanUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{ color: colors.cyan, textDecoration: 'underline', textUnderlineOffset: '2px' }}
-        >
+        <a key={match.index} href={cleanUrl} target="_blank" rel="noopener noreferrer"
+          style={{ color: colors.cyan, textDecoration: 'underline', textUnderlineOffset: '2px' }}>
           {cleanUrl.length > 50 ? cleanUrl.slice(0, 50) + '…' : cleanUrl}
         </a>
       )
       if (trailing) nodes.push(trailing)
     } else if (match[5]) {
-      // Bold **text**
       nodes.push(<strong key={match.index}>{match[6]}</strong>)
     }
 
     lastIndex = match.index + match[0].length
   }
 
-  // Push remaining text
   if (lastIndex < text.length) {
     nodes.push(text.slice(lastIndex))
   }
 
   return nodes
+}
+
+// Render agent message: split body from sources, style sources as a block
+function renderMessageContent(text: string): React.ReactNode {
+  // Split on "Sources:" line (case-insensitive, may have newline before it)
+  const sourcesMatch = text.match(/\n?\s*Sources?:\s*/i)
+
+  if (!sourcesMatch || sourcesMatch.index === undefined) {
+    // No sources section — render as inline text
+    return <>{renderInlineText(text)}</>
+  }
+
+  const bodyText = text.slice(0, sourcesMatch.index).trimEnd()
+  const sourcesRaw = text.slice(sourcesMatch.index + sourcesMatch[0].length)
+  const sources = parseSources(sourcesRaw)
+
+  return (
+    <>
+      {renderInlineText(bodyText)}
+      {sources.length > 0 && (
+        <div style={{
+          marginTop: '0.75rem',
+          paddingTop: '0.5rem',
+          borderTop: `1px solid ${colors.border}`,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '0.375rem',
+        }}>
+          <span style={{
+            fontSize: '0.65rem',
+            fontFamily: 'JetBrains Mono, monospace',
+            color: colors.textDim,
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+          }}>
+            Sources
+          </span>
+          {sources.map((src, i) => (
+            <a
+              key={i}
+              href={src.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.375rem',
+                fontSize: '0.7rem',
+                fontFamily: 'JetBrains Mono, monospace',
+                color: colors.cyan,
+                textDecoration: 'none',
+                padding: '0.25rem 0.5rem',
+                backgroundColor: `${colors.cyan}08`,
+                border: `1px solid ${colors.cyan}20`,
+                borderRadius: '2px',
+                transition: 'all 0.15s',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = `${colors.cyan}15`
+                e.currentTarget.style.borderColor = `${colors.cyan}40`
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = `${colors.cyan}08`
+                e.currentTarget.style.borderColor = `${colors.cyan}20`
+              }}
+            >
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0, opacity: 0.6 }}>
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                <polyline points="15 3 21 3 21 9" />
+                <line x1="10" y1="14" x2="21" y2="3" />
+              </svg>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {src.title}
+              </span>
+            </a>
+          ))}
+        </div>
+      )}
+    </>
+  )
 }
 
 // Format timestamp for pipeline messages

@@ -92,6 +92,35 @@ const dashboardStyles = `
   }
   .clickable-box:hover { background-color: rgba(22, 27, 34, 0.5); }
   .clickable-box.selected { background-color: rgba(22, 27, 34, 0.4); }
+
+  /* Section entrance — staggered card cascade */
+  @keyframes card-enter {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Target each card inside the section's flex container */
+  .section-enter > div > * {
+    opacity: 0;
+    animation: card-enter 0.35s ease-out forwards;
+  }
+  .section-enter > div > *:nth-child(1) { animation-delay: 0ms; }
+  .section-enter > div > *:nth-child(2) { animation-delay: 60ms; }
+  .section-enter > div > *:nth-child(3) { animation-delay: 120ms; }
+  .section-enter > div > *:nth-child(4) { animation-delay: 180ms; }
+  .section-enter > div > *:nth-child(5) { animation-delay: 240ms; }
+  .section-enter > div > *:nth-child(6) { animation-delay: 300ms; }
+  .section-enter > div > *:nth-child(7) { animation-delay: 360ms; }
+  .section-enter > div > *:nth-child(8) { animation-delay: 420ms; }
+  .section-enter > div > *:nth-child(9) { animation-delay: 480ms; }
+  .section-enter > div > *:nth-child(10) { animation-delay: 540ms; }
+  .section-enter > div > *:nth-child(n+11) { animation-delay: 600ms; }
 `
 
 // ============================================================================
@@ -104,14 +133,23 @@ const SectionContent = ({ activeSection }: { activeSection: SectionName }) => {
     return <SectionSkeleton section={activeSection} />
   }
 
-  switch (activeSection) {
-    case 'vision': return <VisionSection />
-    case 'market': return <MarketSection />
-    case 'battlefield': return <BattlefieldSection />
-    case 'verdict': return <VerdictSection />
-    case 'advisors': return <AdvisorsSection />
-    default: return <VisionSection />
-  }
+  // key={activeSection} re-triggers the entrance animation on section switch
+  const content = (() => {
+    switch (activeSection) {
+      case 'vision': return <VisionSection />
+      case 'market': return <MarketSection />
+      case 'battlefield': return <BattlefieldSection />
+      case 'verdict': return <VerdictSection />
+      case 'advisors': return <AdvisorsSection />
+      default: return <VisionSection />
+    }
+  })()
+
+  return (
+    <div key={activeSection} className="section-enter">
+      {content}
+    </div>
+  )
 }
 
 // ============================================================================
