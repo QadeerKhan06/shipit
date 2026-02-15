@@ -16,7 +16,7 @@ const landingStyles = `
   /* Animations */
   @keyframes float {
     0%, 100% { transform: translateY(0px); }
-    50% { transform: translateY(-20px); }
+    50% { transform: translateY(-12px); }
   }
   @keyframes flame-flicker {
     0%, 100% { opacity: 1; }
@@ -169,7 +169,7 @@ export default function LandingPage() {
       }}>
 
         {/* Logo */}
-        <div className="rocket-float" style={{ marginTop: '-2rem' }}>
+        <div className="rocket-float">
           <RocketLogo />
         </div>
 
