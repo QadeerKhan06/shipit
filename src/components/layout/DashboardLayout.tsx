@@ -5,6 +5,8 @@ import { colors } from '@/components/ui/colors'
 import { LeftNav } from './LeftNav'
 import { AgentPanel } from './AgentPanel'
 import { useSimulation } from '@/contexts/SimulationContext'
+import { SectionSkeleton } from '@/components/ui/SectionSkeleton'
+import type { SectionName } from '@/types/simulation'
 
 // ============================================================================
 // LAZY-LOADED SECTIONS (code-splitting for performance)
@@ -36,6 +38,40 @@ const dashboardStyles = `
   .animate-pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
   .pulse-ring { animation: pulse-ring 2s ease-in-out infinite; }
 
+  /* Skeleton shimmer animation */
+  @keyframes skeleton-shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+  .skeleton-shimmer {
+    animation: skeleton-shimmer 2s ease-in-out infinite;
+  }
+
+  /* Skeleton border pulse */
+  @keyframes skeleton-border-pulse {
+    0%, 100% { border-color: rgba(48, 54, 61, 0.5); }
+    50% { border-color: rgba(88, 166, 255, 0.15); }
+  }
+  .skeleton-border-pulse > div:first-child {
+    animation: skeleton-border-pulse 2.5s ease-in-out infinite;
+  }
+
+  /* Section update flash */
+  @keyframes section-updated {
+    0% { background-color: rgba(63, 185, 80, 0.08); }
+    100% { background-color: transparent; }
+  }
+  .section-updated {
+    animation: section-updated 1.5s ease-out;
+  }
+
+  /* Loading spinner */
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  .loading-spin { animation: spin 1s linear infinite; }
+
   /* Form elements */
   input::placeholder { color: #484f58; transition: color 0.2s; }
   input:focus::placeholder { color: #8b949e; }
@@ -59,9 +95,15 @@ const dashboardStyles = `
 `
 
 // ============================================================================
-// SECTION RENDERER
+// SECTION RENDERER (with skeleton fallback)
 // ============================================================================
-const SectionContent = ({ activeSection }: { activeSection: string }) => {
+const SectionContent = ({ activeSection }: { activeSection: SectionName }) => {
+  const { isSectionReady } = useSimulation()
+
+  if (!isSectionReady(activeSection)) {
+    return <SectionSkeleton section={activeSection} />
+  }
+
   switch (activeSection) {
     case 'vision': return <VisionSection />
     case 'market': return <MarketSection />
@@ -94,11 +136,7 @@ export const DashboardLayout = () => {
       {/* MAIN CONTENT */}
       <main style={{ flex: 1, overflowY: 'auto' }}>
         <div style={{ padding: '2rem' }}>
-          <React.Suspense fallback={
-            <div style={{ color: colors.textSecondary, padding: '2rem' }}>
-              Loading section...
-            </div>
-          }>
+          <React.Suspense fallback={<SectionSkeleton section={activeSection} />}>
             <SectionContent activeSection={activeSection} />
           </React.Suspense>
         </div>

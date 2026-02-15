@@ -572,80 +572,155 @@ function fixMarketSize(ms: { tam: number; sam: number; som: number }) {
   return { tam, sam, som }
 }
 
+// ========== SECTION PAYLOAD MAPPERS ==========
+
+/** Extract vision fields from VisionOutput for streaming */
+export function mapVisionPayload(v: VisionOutput): Partial<SimulationData> {
+  return {
+    name: v.name, tagline: v.tagline, valueProposition: v.valueProposition,
+    businessModel: v.businessModel, features: v.features, ahaMoment: v.ahaMoment,
+    targetUsers: v.targetUsers, unitEconomicsSnapshot: v.unitEconomicsSnapshot,
+    problemSolutionMap: v.problemSolutionMap,
+  }
+}
+
+/** Extract market fields from MarketOutput for streaming */
+export function mapMarketPayload(m: MarketOutput): Partial<SimulationData> {
+  return {
+    market: m.market,
+    marketExtended: { ...m.marketExtended, marketSize: fixMarketSize(m.marketExtended.marketSize) },
+  }
+}
+
+/** Extract battlefield fields from BattlefieldOutput for streaming */
+export function mapBattlefieldPayload(b: BattlefieldOutput): Partial<SimulationData> {
+  return {
+    competitors: b.competitors, secondaryCompetitors: b.secondaryCompetitors,
+    strategicPosition: b.strategicPosition, featureMatrix: b.featureMatrix,
+    competitorFunding: b.competitorFunding, saturationScore: b.saturationScore,
+    moatAnalysis: b.moatAnalysis, caseStudies: b.caseStudies,
+  }
+}
+
+/** Extract verdict fields from VerdictOutput for streaming */
+export function mapVerdictPayload(v: VerdictOutput): Partial<SimulationData> {
+  return {
+    strengths: v.strengths, risks: v.risks, hardQuestion: v.hardQuestion,
+    verdict: v.verdict, unitEconomics: v.unitEconomics, bullBearCase: v.bullBearCase,
+    profitabilityPath: v.profitabilityPath, defensibilityScore: v.defensibilityScore,
+    finalVerdict: v.finalVerdict, fatalFlaw: v.fatalFlaw, successPattern: v.successPattern,
+    riskBaseline: v.riskBaseline, techEvolution: v.techEvolution, nextSteps: v.nextSteps,
+    recommendedBlocks: v.recommendedBlocks,
+  }
+}
+
+/** Extract advisors fields from AdvisorsOutput for streaming */
+export function mapAdvisorsPayload(a: AdvisorsOutput): Partial<SimulationData> {
+  return { advisors: a.advisors }
+}
+
+// ========== ASSEMBLY ==========
+
+/** Assemble complete SimulationData from individual section outputs */
+export function assembleSimulation(
+  vision: VisionOutput,
+  market: MarketOutput,
+  battlefield: BattlefieldOutput,
+  verdict: VerdictOutput,
+  advisors: AdvisorsOutput
+): SimulationData {
+  return {
+    ...mapVisionPayload(vision),
+    ...mapMarketPayload(market),
+    ...mapBattlefieldPayload(battlefield),
+    ...mapVerdictPayload(verdict),
+    ...mapAdvisorsPayload(advisors),
+  } as SimulationData
+}
+
+// ========== SELECTIVE REGENERATION ==========
+
+const SECTION_PROMPTS: Record<string, string> = {
+  vision: VISION_PROMPT,
+  market: MARKET_PROMPT,
+  battlefield: BATTLEFIELD_PROMPT,
+  verdict: VERDICT_PROMPT,
+  advisors: ADVISORS_PROMPT,
+}
+
+/** Regenerate a single section with an edit instruction prepended */
+export async function regenerateSection(
+  sectionName: string,
+  currentData: SimulationData,
+  editInstruction: string
+): Promise<Partial<SimulationData>> {
+  const basePrompt = SECTION_PROMPTS[sectionName]
+  if (!basePrompt) throw new Error(`Unknown section: ${sectionName}`)
+
+  const editPrefix = `IMPORTANT EDIT INSTRUCTION: ${editInstruction}
+
+The user has requested changes. Here is the current data for context:
+${JSON.stringify(currentData, null, 2)}
+
+Regenerate this section incorporating the requested changes while keeping the overall analysis consistent.
+
+`
+  const modifiedPrompt = editPrefix + basePrompt
+
+  // Build a minimal research context from currentData
+  const minimalResearch = {
+    idea: currentData.name || '',
+    competitors: currentData.competitors?.map(c => ({
+      name: c.name, description: '', funding: c.funding, pricing: c.pricing, strengths: [] as string[], weaknesses: [] as string[],
+    })) || [],
+    market: { marketSize: '', growthRate: '', keyTrends: [] as string[], targetDemographics: [] as string[] },
+    userComplaints: [] as { source: string; content: string; theme: string }[],
+    caseStudies: [] as { name: string; outcome: string; keyDetails: string; lesson: string }[],
+    regulatory: [] as { area: string; requirements: string; complexity: string }[],
+    rawSearchResults: [] as { title: string; snippet: string; link: string }[],
+    timestamp: new Date().toISOString(),
+  } as unknown as ResearchContext
+
+  switch (sectionName) {
+    case 'vision': {
+      const result = await generateSection<VisionOutput>(modifiedPrompt, minimalResearch, 'Vision (edit)', ['name', 'tagline', 'valueProposition'])
+      return mapVisionPayload(result)
+    }
+    case 'market': {
+      const result = await generateSection<MarketOutput>(modifiedPrompt, minimalResearch, 'Market (edit)', ['market', 'marketExtended'])
+      return mapMarketPayload(result)
+    }
+    case 'battlefield': {
+      const result = await generateSection<BattlefieldOutput>(modifiedPrompt, minimalResearch, 'Battlefield (edit)', ['competitors', 'featureMatrix'])
+      return mapBattlefieldPayload(result)
+    }
+    case 'verdict': {
+      const result = await generateSection<VerdictOutput>(modifiedPrompt, minimalResearch, 'Verdict (edit)', ['strengths', 'risks', 'hardQuestion'])
+      return mapVerdictPayload(result)
+    }
+    case 'advisors': {
+      const result = await generateSection<AdvisorsOutput>(modifiedPrompt, minimalResearch, 'Advisors (edit)', ['advisors'])
+      return mapAdvisorsPayload(result)
+    }
+    default:
+      return {}
+  }
+}
+
+// ========== MAIN PIPELINE ==========
+
 /**
- * Stage 2: Generate all sections from research context.
- *
- * Execution order:
- * 1. Vision, Market, Battlefield → parallel
- * 2. Verdict → depends on all three above
- * 3. Advisors → depends on Verdict + Battlefield
+ * Stage 2: Generate all sections from research context (non-streaming fallback).
  */
 export async function generateAllSections(research: ResearchContext): Promise<SimulationData> {
-  // Phase 1: Generate Vision, Market, Battlefield in parallel
   const [vision, market, battlefield] = await Promise.all([
     generateVision(research),
     generateMarket(research),
     generateBattlefield(research)
   ])
 
-  // Phase 2: Generate Verdict (depends on Phase 1)
   const verdict = await generateVerdict(research, { vision, market, battlefield })
-
-  // Phase 3: Generate Advisors (depends on battlefield data)
   const advisors = await generateAdvisors(research, battlefield)
 
-  // Assemble complete SimulationData
-  const simulation: SimulationData = {
-    // Vision
-    name: vision.name,
-    tagline: vision.tagline,
-    valueProposition: vision.valueProposition,
-    businessModel: vision.businessModel,
-    features: vision.features,
-    ahaMoment: vision.ahaMoment,
-    targetUsers: vision.targetUsers,
-    unitEconomicsSnapshot: vision.unitEconomicsSnapshot,
-    problemSolutionMap: vision.problemSolutionMap,
-
-    // Market (with TAM > SAM > SOM validation)
-    market: market.market,
-    marketExtended: {
-      ...market.marketExtended,
-      marketSize: fixMarketSize(market.marketExtended.marketSize),
-    },
-
-    // Battlefield
-    competitors: battlefield.competitors,
-    secondaryCompetitors: battlefield.secondaryCompetitors,
-    strategicPosition: battlefield.strategicPosition,
-    featureMatrix: battlefield.featureMatrix,
-    competitorFunding: battlefield.competitorFunding,
-    saturationScore: battlefield.saturationScore,
-    moatAnalysis: battlefield.moatAnalysis,
-    caseStudies: battlefield.caseStudies,
-
-    // Verdict
-    strengths: verdict.strengths,
-    risks: verdict.risks,
-    hardQuestion: verdict.hardQuestion,
-    verdict: verdict.verdict,
-    unitEconomics: verdict.unitEconomics,
-    bullBearCase: verdict.bullBearCase,
-    profitabilityPath: verdict.profitabilityPath,
-    defensibilityScore: verdict.defensibilityScore,
-    finalVerdict: verdict.finalVerdict,
-    fatalFlaw: verdict.fatalFlaw,
-    successPattern: verdict.successPattern,
-    riskBaseline: verdict.riskBaseline,
-    techEvolution: verdict.techEvolution,
-    nextSteps: verdict.nextSteps,
-
-    // AI-recommended optional blocks
-    recommendedBlocks: verdict.recommendedBlocks,
-
-    // Advisors
-    advisors: advisors.advisors
-  }
-
-  return simulation
+  return assembleSimulation(vision, market, battlefield, verdict, advisors)
 }

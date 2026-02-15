@@ -3,6 +3,7 @@
 import React from 'react'
 import { colors } from '@/components/ui/colors'
 import { useSimulation } from '@/contexts/SimulationContext'
+import type { SimulationData } from '@/types/simulation'
 
 // Cards
 import { GapRiskCard, FeatureMatrixCard, SaturationScoreCard, CaseStudyCard } from '@/components/cards'
@@ -11,9 +12,10 @@ import { GapRiskCard, FeatureMatrixCard, SaturationScoreCard, CaseStudyCard } fr
 import { CompetitorMapChart, FundingVelocityChart, MoatRadarChart } from '@/components/charts'
 
 export const BattlefieldSection = () => {
-  const { simulation, shouldShowBlock, currentMarketIndex, setCurrentMarketIndex } = useSimulation()
+  const { simulation: partialSim, shouldShowBlock, currentMarketIndex, setCurrentMarketIndex } = useSimulation()
 
-  if (!simulation) return null
+  if (!partialSim) return null
+  const simulation = partialSim as SimulationData
 
   const hasSecondaryMarket = simulation.secondaryCompetitors && simulation.secondaryCompetitors.length > 0
   const currentCompetitors = currentMarketIndex === 'core' ? simulation.competitors : simulation.secondaryCompetitors

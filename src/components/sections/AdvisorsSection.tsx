@@ -3,15 +3,17 @@
 import React, { useState } from 'react'
 import { colors } from '@/components/ui/colors'
 import { useSimulation } from '@/contexts/SimulationContext'
+import type { SimulationData } from '@/types/simulation'
 import { AdvisorCard } from '@/components/cards/AdvisorCard'
 import { AdvisorChat } from '@/components/cards/AdvisorChat'
 import type { AdvisorPersona } from '@/types/simulation'
 
 export const AdvisorsSection = () => {
-  const { simulation, shouldShowBlock } = useSimulation()
+  const { simulation: partialSim, shouldShowBlock } = useSimulation()
   const [activeChat, setActiveChat] = useState<AdvisorPersona | null>(null)
 
-  if (!simulation) return null
+  if (!partialSim) return null
+  const simulation = partialSim as SimulationData
 
   // Filter advisors: competitor-customer is optional
   const visibleAdvisors = simulation.advisors.filter(a => {

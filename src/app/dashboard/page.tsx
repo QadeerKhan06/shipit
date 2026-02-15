@@ -6,58 +6,7 @@ import { SimulationProvider, useSimulation } from '@/contexts/SimulationContext'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
 import { colors } from '@/components/ui/colors'
 
-// Loading component
-const LoadingState = () => (
-  <div style={{
-    height: '100vh',
-    backgroundColor: colors.background,
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '1.5rem'
-  }}>
-    <style>{`
-      @keyframes pulse {
-        0%, 100% { opacity: 0.4; }
-        50% { opacity: 1; }
-      }
-      @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-      }
-      .loading-dot {
-        animation: pulse 1.5s ease-in-out infinite;
-      }
-      .loading-spinner {
-        animation: spin 1s linear infinite;
-      }
-    `}</style>
-
-    <div style={{ position: 'relative', width: '60px', height: '60px' }}>
-      <div
-        className="loading-spinner"
-        style={{
-          width: '60px',
-          height: '60px',
-          border: `3px solid ${colors.border}`,
-          borderTop: `3px solid ${colors.magenta}`,
-          borderRadius: '50%'
-        }}
-      />
-    </div>
-
-    <div style={{ fontFamily: 'JetBrains Mono, monospace', color: colors.cyan, fontSize: '1rem' }}>
-      Analyzing your idea<span className="loading-dot">...</span>
-    </div>
-
-    <div style={{ fontFamily: 'JetBrains Mono, monospace', color: colors.textDim, fontSize: '0.75rem', maxWidth: '300px', textAlign: 'center' }}>
-      Researching competitors, market trends, and case studies
-    </div>
-  </div>
-)
-
-// Error component
+// Error component (only for fatal errors)
 const ErrorState = ({ error }: { error: string }) => (
   <div style={{
     height: '100vh',
@@ -86,32 +35,26 @@ const ErrorState = ({ error }: { error: string }) => (
   </div>
 )
 
-// Dashboard content component
+// Dashboard content - always renders DashboardLayout once analysis starts
 function DashboardContent() {
   const searchParams = useSearchParams()
-  const { loadSimulation, simulation, isLoading, error } = useSimulation()
+  const { startAnalysis, pipelineStatus, error } = useSimulation()
   const hasStartedRef = useRef(false)
 
   useEffect(() => {
     const idea = searchParams.get('idea')
     if (idea && !hasStartedRef.current) {
       hasStartedRef.current = true
-      loadSimulation(idea)
+      startAnalysis(idea)
     }
-  }, [searchParams, loadSimulation])
+  }, [searchParams, startAnalysis])
 
-  if (isLoading) {
-    return <LoadingState />
-  }
-
-  if (error) {
+  // Only show error state for fatal errors when nothing has loaded
+  if (error && pipelineStatus === 'error') {
     return <ErrorState error={error} />
   }
 
-  if (!simulation) {
-    return <LoadingState />
-  }
-
+  // Always show the dashboard layout (with skeletons for unloaded sections)
   return <DashboardLayout />
 }
 
@@ -119,7 +62,9 @@ function DashboardContent() {
 export default function DashboardPage() {
   return (
     <SimulationProvider>
-      <Suspense fallback={<LoadingState />}>
+      <Suspense fallback={
+        <div style={{ height: '100vh', backgroundColor: colors.background }} />
+      }>
         <DashboardContent />
       </Suspense>
     </SimulationProvider>

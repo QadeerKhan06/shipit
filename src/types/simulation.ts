@@ -1,6 +1,19 @@
 // Section navigation types
 export type SectionName = 'vision' | 'market' | 'battlefield' | 'verdict' | 'advisors'
 
+// Pipeline status types
+export type PipelineStatus = 'idle' | 'researching' | 'generating' | 'complete' | 'error'
+export type SectionLoadStatus = 'pending' | 'loading' | 'complete' | 'error'
+
+export interface PipelineMessage {
+  id: string
+  timestamp: string
+  message: string
+  status: 'in_progress' | 'complete' | 'error'
+  section?: SectionName
+  detail?: string
+}
+
 // Competitor data
 export interface Competitor {
   name: string
@@ -388,7 +401,7 @@ export interface AdvisorPersona {
 
 // Agent message type
 export interface AgentMessage {
-  role: 'agent' | 'user'
+  role: 'agent' | 'user' | 'system'
   content: string
   /** Optional metadata for agent context (block data, sources, etc.) */
   metadata?: Record<string, unknown>

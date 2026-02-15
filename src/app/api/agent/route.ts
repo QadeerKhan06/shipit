@@ -45,17 +45,23 @@ Return JSON: { "type": "question" | "edit", "reasoning": "brief explanation" }` 
       const answerResult = await flashModel.generateContent({
         contents: [{
           role: 'user',
-          parts: [{ text: `You are a startup mentor helping a founder understand their validation report. Answer their question using the report data below.
+          parts: [{ text: `You are an expert startup mentor with deep knowledge of this founder's validation report. Answer their question with SPECIFIC data from the report.
 
 ## Report Data
 ${JSON.stringify(currentData, null, 2)}
 
-${focusedBlock ? `The user is currently looking at: "${focusedBlock.label}" in the "${focusedBlock.section}" section.` : ''}
+${focusedBlock ? `The user is currently looking at: "${focusedBlock.label}" in the "${focusedBlock.section}" section. Focus your answer on this specific block's data.` : ''}
 
 ## User Question
-${message}
+"${message}"
 
-Be concise (2-4 sentences), specific to their data, and actionable. Reference specific numbers and findings from the report.` }]
+RULES:
+- ALWAYS reference specific numbers, names, and findings from the report data above
+- If asked about sources: the data comes from Serper web search (Google results, job postings, funding databases, user review platforms). Charts like "Hype vs Reality" and "Demand Trend" are derived from search interest indices and industry report aggregation. Competitor data is from Crunchbase/public funding records. User quotes are from Reddit, G2, Trustpilot, app stores, and forums.
+- If asked about positioning: reference the competitor map coordinates, the strategic gap/risk analysis, saturation score, and moat analysis from the report
+- If asked "how" or "what should I do": give actionable advice based on the strengths, risks, next steps, and case studies in the report
+- Be direct and specific (3-5 sentences). No filler. Cite exact data points.
+- Do NOT say "the report doesn't state" — the data IS the report, interpret it` }]
         }]
       })
 
@@ -70,23 +76,35 @@ Be concise (2-4 sentences), specific to their data, and actionable. Reference sp
           role: 'user',
           parts: [{ text: `A user wants to edit their startup validation report. Analyze the edit request and determine which sections need to be regenerated.
 
+## Section → Data Mapping (use this to determine affected sections)
+- "vision": name, tagline, valueProposition, businessModel, features, ahaMoment, targetUsers, unitEconomicsSnapshot, problemSolutionMap
+- "market": market (demandTrend, workforceCapacity, opportunityGap, userQuotes, fundingTotal, jobPostings), marketExtended (marketSize, fundingActivity, jobPostingsTrend, regulatoryLandscape, hypeVsReality)
+- "battlefield": competitors, secondaryCompetitors, strategicPosition, featureMatrix, competitorFunding, saturationScore, moatAnalysis, caseStudies
+- "verdict": strengths, risks, hardQuestion, verdict, unitEconomics, bullBearCase, profitabilityPath, defensibilityScore, finalVerdict, fatalFlaw, successPattern, riskBaseline, techEvolution, nextSteps, recommendedBlocks
+- "advisors": advisors (advisor personas with names, bios, openingMessages, systemContext)
+
 ## Current Report
-${JSON.stringify(currentData, null, 2)}
+Name: "${currentData.name}"
+Tagline: "${currentData.tagline}"
 
 ## Edit Request
 "${message}"
 
-Return JSON with this structure:
+Return JSON:
 {
   "editDescription": "Short description of the change",
-  "affectedSections": ["vision", "market", "battlefield", "verdict", "advisors"],
-  "changes": {
-    "description": "What will change in the report"
-  },
-  "response": "Brief message to the user explaining what will change"
+  "editInstruction": "Detailed instruction for the AI regenerator. Be very specific: what exactly should change, what values to use, what to keep the same.",
+  "affectedSections": ["section1", "section2"],
+  "response": "Brief message to the user (1-2 sentences) explaining what will change"
 }
 
-Only include sections in affectedSections that would actually need to change. Most edits affect 1-3 sections. The "verdict" section is almost always affected since it summarizes everything.` }]
+RULES for affectedSections:
+- If the user changes the NAME or TAGLINE → "vision" MUST be included (that's where name/tagline live)
+- If name/tagline changes → also include "advisors" (they reference the startup name in bios/messages)
+- If business model or pricing changes → include "vision" + "verdict" (unit economics)
+- If the user changes competitive positioning → include "battlefield" + "verdict"
+- "verdict" should be included if ANY core data changes since it summarizes everything
+- Do NOT include sections that won't actually be impacted` }]
         }]
       })
 
@@ -104,8 +122,8 @@ Only include sections in affectedSections that would actually need to change. Mo
         response: editData.response,
         type: 'edit',
         editDescription: editData.editDescription,
+        editInstruction: editData.editInstruction || editData.editDescription,
         affectedSections: editData.affectedSections,
-        changes: editData.changes
       })
     }
   } catch (error) {

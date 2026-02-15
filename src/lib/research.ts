@@ -81,10 +81,17 @@ async function executeFunction(name: string, args: Record<string, string>): Prom
  * Uses Gemini with function calling to orchestrate web searches via Serper,
  * then synthesizes results into a structured ResearchContext.
  */
-export async function conductResearch(idea: string): Promise<ResearchContext> {
+export type ResearchProgressCallback = (message: string) => void
+
+export async function conductResearch(
+  idea: string,
+  onProgress?: ResearchProgressCallback
+): Promise<ResearchContext> {
   const allSearchResults: SearchResult[] = []
+  const emit = onProgress || (() => {})
 
   // Start chat with Gemini, giving it search tools
+  emit('Initializing AI research agent...')
   const chat = flashModel.startChat({
     tools: searchTools,
   })
@@ -102,7 +109,17 @@ Your job is to thoroughly research this startup idea using the search tools avai
 Make at least 5 different searches across these categories. Be specific with your search queries based on the startup idea.`
 
   // Send the initial prompt
+  emit('Researching your startup idea...')
   let result = await chat.sendMessage(researchPrompt)
+
+  // Friendly labels for function names
+  const searchLabels: Record<string, string> = {
+    search_competitors: 'Searching competitors & funding data',
+    search_market_data: 'Searching market size & growth trends',
+    search_user_complaints: 'Searching user complaints & pain points',
+    search_regulatory: 'Searching regulatory requirements',
+    search_case_studies: 'Searching startup case studies',
+  }
 
   // Process function calls in a loop (Gemini may make multiple)
   let iterations = 0
@@ -113,6 +130,11 @@ Make at least 5 different searches across these categories. Be specific with you
     const calls = response.functionCalls()
 
     if (!calls || calls.length === 0) break
+
+    // Emit progress for each search being made
+    for (const call of calls) {
+      emit(searchLabels[call.name] || `Searching: ${call.name}`)
+    }
 
     // Execute all function calls
     const functionResponses = await Promise.all(
@@ -128,11 +150,14 @@ Make at least 5 different searches across these categories. Be specific with you
       })
     )
 
+    emit(`Found ${allSearchResults.length} sources so far...`)
+
     // Send results back to Gemini
     result = await chat.sendMessage(functionResponses)
     iterations++
   }
 
+  emit('Synthesizing research into structured data...')
   // Now ask Gemini to synthesize the research into structured data
   const synthesisPrompt = `Based on all the research you've gathered, synthesize your findings into a structured JSON object with these exact fields:
 

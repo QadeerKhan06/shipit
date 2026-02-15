@@ -3,6 +3,7 @@
 import React from 'react'
 import { colors } from '@/components/ui/colors'
 import { useSimulation } from '@/contexts/SimulationContext'
+import type { SimulationData } from '@/types/simulation'
 
 // Cards
 import { QuotesCard, MarketSizeCard, VCFundingCard, RegulatoryCard } from '@/components/cards'
@@ -17,9 +18,10 @@ import {
 } from '@/components/charts'
 
 export const MarketSection = () => {
-  const { simulation, shouldShowBlock } = useSimulation()
+  const { simulation: partialSim, shouldShowBlock } = useSimulation()
 
-  if (!simulation) return null
+  if (!partialSim) return null
+  const simulation = partialSim as SimulationData
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>

@@ -3,6 +3,7 @@
 import React from 'react'
 import { colors } from '@/components/ui/colors'
 import { useSimulation } from '@/contexts/SimulationContext'
+import type { SimulationData } from '@/types/simulation'
 
 // Cards
 import {
@@ -42,9 +43,10 @@ const metricLabels: Record<string, string> = {
 }
 
 export const VerdictSection = () => {
-  const { simulation, shouldShowBlock } = useSimulation()
+  const { simulation: partialSim, shouldShowBlock } = useSimulation()
 
-  if (!simulation) return null
+  if (!partialSim) return null
+  const simulation = partialSim as SimulationData
 
   // Calculate weakest metric for strategic pivot logic
   const defensibilityScores = simulation.defensibilityScore

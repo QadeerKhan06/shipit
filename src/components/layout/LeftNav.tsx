@@ -3,14 +3,14 @@
 import React from 'react'
 import { colors } from '@/components/ui/colors'
 import { useSimulation } from '@/contexts/SimulationContext'
-import type { SectionName } from '@/types/simulation'
+import type { SectionName, SectionLoadStatus } from '@/types/simulation'
 
-const sections = [
-  { id: 'vision' as SectionName, label: 'Vision', icon: '◉', completed: true },
-  { id: 'market' as SectionName, label: 'Market', icon: '◉', completed: true },
-  { id: 'battlefield' as SectionName, label: 'Battle', icon: '◉', completed: true },
-  { id: 'verdict' as SectionName, label: 'Verdict', icon: '○', completed: false },
-  { id: 'advisors' as SectionName, label: 'Advisors', icon: '○', completed: false }
+const sections: { id: SectionName; label: string }[] = [
+  { id: 'vision', label: 'Vision' },
+  { id: 'market', label: 'Market' },
+  { id: 'battlefield', label: 'Battle' },
+  { id: 'verdict', label: 'Verdict' },
+  { id: 'advisors', label: 'Advisors' }
 ]
 
 const exportButtons = [
@@ -19,10 +19,20 @@ const exportButtons = [
   { icon: '📊', label: 'CSV', tooltip: 'Export Raw Data' }
 ]
 
+function getStatusIcon(status: SectionLoadStatus): { icon: string; color: string; className?: string } {
+  switch (status) {
+    case 'pending': return { icon: '○', color: colors.textDim }
+    case 'loading': return { icon: '◌', color: colors.amber, className: 'loading-spin' }
+    case 'complete': return { icon: '◉', color: colors.green }
+    case 'error': return { icon: '✕', color: colors.red }
+  }
+}
+
 export const LeftNav = () => {
   const {
     activeSection,
-    setActiveSection
+    setActiveSection,
+    sectionStatus
   } = useSimulation()
 
   return (
@@ -39,43 +49,47 @@ export const LeftNav = () => {
       </div>
 
       <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-        {sections.map((section) => (
-          <button
-            key={section.id}
-            onClick={() => setActiveSection(section.id)}
-            style={{
-              width: '100%',
-              textAlign: 'left',
-              fontFamily: 'JetBrains Mono, monospace',
-              fontSize: '0.875rem',
-              padding: '0.5rem',
-              borderRadius: '0.25rem',
-              backgroundColor: activeSection === section.id ? colors.surface : 'transparent',
-              color: activeSection === section.id ? colors.magenta : colors.textSecondary,
-              border: 'none',
-              cursor: 'pointer',
-              transition: 'all 0.2s'
-            }}
-            onMouseEnter={(e) => {
-              if (activeSection !== section.id) {
-                e.currentTarget.style.color = colors.textPrimary
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (activeSection !== section.id) {
-                e.currentTarget.style.color = colors.textSecondary
-              }
-            }}
-          >
-            <span style={{ color: section.completed ? colors.green : colors.textDim }}>
-              {section.icon}
-            </span>{' '}
-            {section.label}
-            {activeSection === section.id && (
-              <span style={{ marginLeft: '0.5rem', color: colors.magenta }}>←</span>
-            )}
-          </button>
-        ))}
+        {sections.map((section) => {
+          const status = sectionStatus[section.id]
+          const { icon, color, className } = getStatusIcon(status)
+          return (
+            <button
+              key={section.id}
+              onClick={() => setActiveSection(section.id)}
+              style={{
+                width: '100%',
+                textAlign: 'left',
+                fontFamily: 'JetBrains Mono, monospace',
+                fontSize: '0.875rem',
+                padding: '0.5rem',
+                borderRadius: '0.25rem',
+                backgroundColor: activeSection === section.id ? colors.surface : 'transparent',
+                color: activeSection === section.id ? colors.magenta : colors.textSecondary,
+                border: 'none',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+              onMouseEnter={(e) => {
+                if (activeSection !== section.id) {
+                  e.currentTarget.style.color = colors.textPrimary
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (activeSection !== section.id) {
+                  e.currentTarget.style.color = colors.textSecondary
+                }
+              }}
+            >
+              <span className={className} style={{ color, display: 'inline-block' }}>
+                {icon}
+              </span>{' '}
+              {section.label}
+              {activeSection === section.id && (
+                <span style={{ marginLeft: '0.5rem', color: colors.magenta }}>←</span>
+              )}
+            </button>
+          )
+        })}
       </nav>
 
       {/* Spacer */}
