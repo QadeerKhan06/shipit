@@ -8,6 +8,67 @@ import type { SectionName, PipelineMessage } from '@/types/simulation'
 
 const ALL_SECTIONS: SectionName[] = ['vision', 'market', 'battlefield', 'verdict', 'advisors']
 
+// Render text with clickable links (handles [text](url), bare URLs, and **bold**)
+function renderMessageContent(text: string): React.ReactNode[] {
+  // Combined pattern: markdown links, bare URLs, bold text
+  const pattern = /(\[([^\]]+)\]\((https?:\/\/[^)]+)\))|(https?:\/\/[^\s,)]+)|(\*\*([^*]+)\*\*)/g
+  const nodes: React.ReactNode[] = []
+  let lastIndex = 0
+  let match: RegExpExecArray | null
+
+  while ((match = pattern.exec(text)) !== null) {
+    // Push text before this match
+    if (match.index > lastIndex) {
+      nodes.push(text.slice(lastIndex, match.index))
+    }
+
+    if (match[1]) {
+      // Markdown link [text](url)
+      nodes.push(
+        <a
+          key={match.index}
+          href={match[3]}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: colors.cyan, textDecoration: 'underline', textUnderlineOffset: '2px' }}
+        >
+          {match[2]}
+        </a>
+      )
+    } else if (match[4]) {
+      // Bare URL
+      const url = match[4]
+      // Clean trailing punctuation
+      const cleanUrl = url.replace(/[.,;:!?)]+$/, '')
+      const trailing = url.slice(cleanUrl.length)
+      nodes.push(
+        <a
+          key={match.index}
+          href={cleanUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: colors.cyan, textDecoration: 'underline', textUnderlineOffset: '2px' }}
+        >
+          {cleanUrl.length > 50 ? cleanUrl.slice(0, 50) + '…' : cleanUrl}
+        </a>
+      )
+      if (trailing) nodes.push(trailing)
+    } else if (match[5]) {
+      // Bold **text**
+      nodes.push(<strong key={match.index}>{match[6]}</strong>)
+    }
+
+    lastIndex = match.index + match[0].length
+  }
+
+  // Push remaining text
+  if (lastIndex < text.length) {
+    nodes.push(text.slice(lastIndex))
+  }
+
+  return nodes
+}
+
 // Format timestamp for pipeline messages
 function formatTime(iso: string): string {
   const d = new Date(iso)
@@ -165,7 +226,7 @@ export const AgentPanel = () => {
                 </div>
                 <TerminalBox variant={msg.role === 'user' ? 'default' : 'info'}>
                   <div style={{ fontSize: '0.875rem', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>
-                    {msg.content}
+                    {msg.role === 'agent' ? renderMessageContent(msg.content) : msg.content}
                   </div>
                 </TerminalBox>
 

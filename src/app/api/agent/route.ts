@@ -45,30 +45,39 @@ Return JSON: { "type": "question" | "edit", "reasoning": "brief explanation" }` 
       // Answer the question using the report data
       // Build sources section for the prompt
       const sourcesText = sources && sources.length > 0
-        ? `\n## Research Sources (actual URLs from our web research)\n${sources.slice(0, 30).map((s, i) => `${i + 1}. [${s.title}](${s.link}) — ${s.snippet}`).join('\n')}`
+        ? `\n## Research Sources\nThese are the actual URLs from our web research. ALWAYS cite relevant ones.\n${sources.slice(0, 30).map((s, i) => `${i + 1}. ${s.title} — ${s.link}\n   ${s.snippet}`).join('\n')}`
+        : ''
+
+      // Context instruction depends on whether user has a block focused
+      const contextInstruction = focusedBlock
+        ? `The user is looking at the "${focusedBlock.label}" block right now. They can see it. Refer to it as "this" or "here" — do NOT restate the block name, section name, or say "The ${focusedBlock.label} in the ${focusedBlock.section} section shows...". Just talk about the data directly, as if you're both looking at the same screen.`
         : ''
 
       const answerResult = await flashModel.generateContent({
         contents: [{
           role: 'user',
-          parts: [{ text: `You are an expert startup mentor with deep knowledge of this founder's validation report. Answer their question with SPECIFIC data from the report.
+          parts: [{ text: `You're a sharp startup mentor reviewing this founder's validation report with them. Be conversational, direct, and insightful — like a smart friend who happens to know a lot about startups.
 
 ## Report Data
 ${JSON.stringify(currentData, null, 2)}
 ${sourcesText}
 
-${focusedBlock ? `The user is currently looking at: "${focusedBlock.label}" in the "${focusedBlock.section}" section. Focus your answer on this specific block's data.` : ''}
+${contextInstruction}
 
 ## User Question
 "${message}"
 
 RULES:
-- ALWAYS reference specific numbers, names, and findings from the report data above
-- If asked about sources/where data comes from: cite the ACTUAL research source URLs listed above. Format as "Source: [title](url)". These are real web pages we searched during research. If no sources are provided, explain the data was synthesized from web search results.
-- If asked about positioning: reference the competitor map coordinates, the strategic gap/risk analysis, saturation score, and moat analysis from the report
-- If asked "how" or "what should I do": give actionable advice based on the strengths, risks, next steps, and case studies in the report
-- Be direct and specific (3-5 sentences). No filler. Cite exact data points.
-- Do NOT say "the report doesn't state" — the data IS the report, interpret it` }]
+- Be conversational and direct. Talk like a knowledgeable mentor, not a report generator.
+- Reference specific numbers, names, and findings — but weave them naturally into your response.
+- Keep it to 2-4 sentences. Punchy and useful. No filler, no "Great question!" openers.
+- NEVER say "the report doesn't state", "does not have a directly cited source", or "not explicitly mentioned". You have ALL the data — interpret and explain it confidently.
+- When citing sources: list them at the end as plain text like this:
+  Sources: Title One (url), Title Two (url)
+  Pick the 2-3 most relevant sources from the Research Sources list above. Every answer should include sources if the Research Sources list is available.
+- If asked about positioning: reference competitor coordinates, strategic gaps, saturation score, and moat analysis.
+- If asked "how" or "what should I do": give actionable advice grounded in the report's strengths, risks, and next steps.
+- ALL data in this report was synthesized from real web research. Never disclaim the data's origin — just cite the sources.` }]
         }]
       })
 

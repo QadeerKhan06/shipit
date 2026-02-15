@@ -89,7 +89,52 @@ IMPORTANT:
 
 Return ONLY the JSON.`
 
-const MARKET_PROMPT = `You are generating the "Market" section of a startup validation report. Based on the research data provided, generate a JSON object with these EXACT fields:
+// Market prompt is built dynamically in generateMarket() to inject real data
+function buildMarketPrompt(research: ResearchContext): string {
+  const realData = research.realMarketData
+  const hasGoogleTrends = realData?.googleTrends && realData.googleTrends.data.length > 0
+
+  // Build the real trends data instruction
+  let trendsInstruction = ''
+  if (hasGoogleTrends) {
+    const td = realData!.googleTrends!
+    const trendsJson = JSON.stringify(td.data)
+    trendsInstruction = `
+## REAL Google Trends Data (USE THIS — do not fabricate)
+Keyword: "${td.keyword}"
+Data: ${trendsJson}
+
+For trendsData and demandTrend: You MUST use these exact values from Google Trends. Map them directly:
+- trendsData: use { "date": year, "value": value } format
+- demandTrend: use { "year": year, "value": value } format
+- demandTrendSubtitle: "'${td.keyword}' search interest (Google Trends)"
+- For hypeVsReality: use the Google Trends values as the "hype" dimension. For "reality", estimate actual market adoption/revenue growth as a percentage of hype (typically 60-85% of hype in mature markets, 30-50% in overhyped markets). Base your reality estimate on the research data about actual market performance.`
+  } else {
+    trendsInstruction = `
+NOTE: Google Trends data was unavailable. For trendsData and demandTrend, estimate realistic values based on the research data. NOT every market has a smooth upward curve — some had a COVID dip in 2020, some spiked and cooled off. Reflect the real shape of THIS market's trend.`
+  }
+
+  // Build job posting stats context
+  let jobStatsInstruction = ''
+  if (realData?.jobPostingStats && realData.jobPostingStats.length > 0) {
+    const snippets = realData.jobPostingStats.slice(0, 4).map(s => `- ${s.title}: ${s.snippet} (${s.link})`).join('\n')
+    jobStatsInstruction = `
+## Real Job Posting Data (from web search — use these as basis)
+${snippets}
+Use these sources to ground your jobPostings number and jobPostingsTrend. Extract real numbers from the snippets where possible.`
+  }
+
+  // Build workforce stats context
+  let workforceInstruction = ''
+  if (realData?.workforceStats && realData.workforceStats.length > 0) {
+    const snippets = realData.workforceStats.slice(0, 4).map(s => `- ${s.title}: ${s.snippet} (${s.link})`).join('\n')
+    workforceInstruction = `
+## Real Workforce/Labor Data (from web search — use these as basis)
+${snippets}
+Use these sources to ground your workforceCapacity numbers. Extract real statistics from the snippets where possible.`
+  }
+
+  return `You are generating the "Market" section of a startup validation report. Based on the research data provided, generate a JSON object with these EXACT fields:
 
 {
   "market": {
@@ -109,7 +154,7 @@ const MARKET_PROMPT = `You are generating the "Market" section of a startup vali
       { "year": "2023", "value": 0 },
       { "year": "2024", "value": 0 }
     ],
-    "demandTrendSubtitle": "Short description of what the demand trend measures, e.g. 'Meal kit delivery search interest'",
+    "demandTrendSubtitle": "Short description of what the demand trend measures",
     "workforceSubtitle": "Short description of the workforce being measured, e.g. 'Licensed home health aides'",
     "workforceCapacity": [
       { "city": "San Francisco", "count": 185000 },
@@ -184,25 +229,25 @@ const MARKET_PROMPT = `You are generating the "Market" section of a startup vali
     ]
   }
 }
+${trendsInstruction}
+${jobStatsInstruction}
+${workforceInstruction}
 
 IMPORTANT:
-- trendsData values represent search interest (0-100 scale, like Google Trends). Include 6 data points from 2019-2024. Generate realistic values based on the actual market — NOT every market has a smooth upward curve. Some markets had a COVID dip in 2020, some spiked and cooled off, some are steady. Reflect the real shape of THIS specific market's trend. Do NOT use the same values as the example (the zeros are placeholders).
-- demandTrend mirrors trendsData — use the SAME values with "year" instead of "date".
-- demandTrendSubtitle: a short phrase describing what the trend measures for THIS specific market (e.g., "'meal kit delivery' search interest", "EV charging station queries"). Be specific to the startup's domain.
 - workforceSubtitle: a short phrase describing the workforce being counted (e.g., "Licensed home health aides", "Freelance web developers"). Be specific to the startup's domain.
-- workforceCapacity: cities with relevant available workforce (workers, freelancers, professionals in this space). Use 3-5 cities. The "count" field is the number of available workers/professionals. Use realistic, VARIED numbers for each city — do NOT use the same number for all cities.
-- opportunityGap: "demand" = unmet market need level (0-100), "supply" = existing solutions coverage (0-100). The gap between demand and supply represents the market opportunity. Use EXACTLY the field names "demand" and "supply". Include 5-6 data points from 2019-2024.
-- jobPostings: current active job postings in this space (must be > 0, use a realistic number).
-- userQuotes: Include 3-5 quotes from the research data. Each should reference a real complaint or need. For the "platform" field, identify the actual source platform from the URL (e.g., "reddit", "twitter", "producthunt", "trustpilot", "g2", "hackernews", "quora", "appstore"). Use the actual platform name from each URL — do NOT default everything to "reddit". If most research results are from Reddit, that's OK, but use the correct platform for each quote's source URL.
-- fundingTotal: total VC funding in this market (e.g., "$2.3B+"). Use a realistic aggregate from research data. Do NOT use "$XXM+" literally.
-- fundingActivity.total: same as fundingTotal. recentRounds: 3-4 real funding rounds from companies in this space. Use ACTUAL company names and real funding amounts from the research. Do NOT use placeholder values like "Name", "$XXM", or "Series X".
-- TAM/SAM/SOM should be in raw numbers (e.g., 50000000000 for $50B). CRITICAL RULES: TAM > SAM > SOM > 0, always. TAM is the total addressable market (largest). SAM is the serviceable addressable market (subset of TAM, maybe 10-30% of TAM). SOM is the serviceable obtainable market (what a startup can realistically capture in 3-5 years, typically 1-5% of SAM). Do NOT violate TAM > SAM > SOM. Do NOT set SOM to 0.
-- jobPostingsTrend: 5 data points showing hiring trend from 2020-2024 with realistic growing numbers.
-- regulatoryLandscape: 3-4 entries. The "notes" field MUST contain a specific 1-sentence description of the actual regulation or requirement. Do NOT use placeholder text like "Details" or "TBD". Example: "CCPA data privacy requirements apply to consumer data collection"
-- hypeVsReality should have 5-6 data points
-- fundingActivity.recentRounds: Only include funding amounts you are confident are accurate from the research data. If an amount is uncertain, use "Undisclosed" for the amount. Do NOT fabricate funding figures.
+- workforceCapacity: cities with relevant available workforce. Use 3-5 cities. Use realistic, VARIED numbers grounded in the workforce data sources above. Do NOT invent numbers — base them on the real statistics provided.
+- opportunityGap: "demand" = unmet market need level (0-100), "supply" = existing solutions coverage (0-100). Use EXACTLY the field names "demand" and "supply". Include 5-6 data points from 2019-2024.
+- jobPostings: current active job postings in this space (must be > 0). Ground this in the job posting data sources above.
+- userQuotes: Include 3-5 quotes from the research data. Use the actual platform name from each URL.
+- fundingTotal: total VC funding in this market. Use a realistic aggregate from research data.
+- fundingActivity.recentRounds: 3-4 real funding rounds. Use ACTUAL company names and amounts from research. If uncertain, use "Undisclosed" for amount.
+- TAM/SAM/SOM: raw numbers (e.g., 50000000000 for $50B). CRITICAL: TAM > SAM > SOM > 0 always.
+- jobPostingsTrend: 5 data points from 2020-2024. Ground in the job posting sources above.
+- regulatoryLandscape: 3-4 entries with specific regulation descriptions.
+- hypeVsReality: 5-6 data points. If Google Trends data is provided, use those values for "hype".
 
 Return ONLY the JSON.`
+}
 
 const BATTLEFIELD_PROMPT = `You are generating the "Battlefield" (competitive analysis) section of a startup validation report. Based on the research data provided, generate a JSON object with these EXACT fields:
 
@@ -528,7 +573,8 @@ export async function generateVision(research: ResearchContext): Promise<VisionO
 }
 
 export async function generateMarket(research: ResearchContext): Promise<MarketOutput> {
-  return generateSection<MarketOutput>(MARKET_PROMPT, research, 'Market', ['market', 'marketExtended'])
+  const marketPrompt = buildMarketPrompt(research)
+  return generateSection<MarketOutput>(marketPrompt, research, 'Market', ['market', 'marketExtended'])
 }
 
 export async function generateBattlefield(research: ResearchContext): Promise<BattlefieldOutput> {
@@ -640,9 +686,14 @@ export function assembleSimulation(
 
 // ========== SELECTIVE REGENERATION ==========
 
+// For regeneration (edits), use a minimal research context — no real market data available
+const MARKET_PROMPT_FALLBACK = buildMarketPrompt({
+  realMarketData: { googleTrends: null, jobPostingStats: [], workforceStats: [] },
+} as unknown as ResearchContext)
+
 const SECTION_PROMPTS: Record<string, string> = {
   vision: VISION_PROMPT,
-  market: MARKET_PROMPT,
+  market: MARKET_PROMPT_FALLBACK,
   battlefield: BATTLEFIELD_PROMPT,
   verdict: VERDICT_PROMPT,
   advisors: ADVISORS_PROMPT,

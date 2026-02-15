@@ -52,7 +52,7 @@ export const HypeRealityChart = ({ section, data }: HypeRealityChartProps) => {
       data: {
         label: point.year,
         value: type === 'hype' ? point.hype : point.reality,
-        subLabel: type === 'hype' ? 'Hype Index' : 'Reality Index',
+        subLabel: type === 'hype' ? 'Search Interest (Google Trends)' : 'Market Adoption Est.',
         color: type === 'hype' ? colors.magenta : colors.cyan
       },
       x,
@@ -154,8 +154,8 @@ export const HypeRealityChart = ({ section, data }: HypeRealityChartProps) => {
           </g>
         )
       })}
-      <text x="20" y="30" fill={colors.magenta} fontSize="12">- - Hype</text>
-      <text x="20" y="50" fill={colors.cyan} fontSize="12">— Reality</text>
+      <text x="20" y="30" fill={colors.magenta} fontSize="11">- - Search Interest</text>
+      <text x="20" y="50" fill={colors.cyan} fontSize="11">— Adoption</text>
     </svg>
     </div>
   </BaseChart>

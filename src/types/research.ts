@@ -41,6 +41,25 @@ export interface RegulatoryResearch {
   complexity: string
 }
 
+// Google Trends data point
+export interface TrendDataPoint {
+  year: string
+  value: number  // 0-100 (Google Trends normalized)
+}
+
+// Real data gathered from APIs (not AI-synthesized)
+export interface RealMarketData {
+  // Google Trends interest-over-time (null if API failed)
+  googleTrends: {
+    keyword: string
+    data: TrendDataPoint[]
+  } | null
+  // Job posting stats from targeted searches (snippets with real numbers)
+  jobPostingStats: SearchResult[]
+  // Workforce/labor statistics from targeted searches
+  workforceStats: SearchResult[]
+}
+
 export interface ResearchContext {
   idea: string
   competitors: CompetitorResearch[]
@@ -49,5 +68,6 @@ export interface ResearchContext {
   caseStudies: CaseStudyResearch[]
   regulatory: RegulatoryResearch[]
   rawSearchResults: SearchResult[]
+  realMarketData: RealMarketData
   timestamp: string
 }

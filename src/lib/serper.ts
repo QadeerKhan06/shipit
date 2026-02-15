@@ -57,3 +57,11 @@ export async function searchRegulatory(query: string): Promise<SerperResult[]> {
 export async function searchCaseStudies(query: string): Promise<SerperResult[]> {
   return search(`${query} startup success failure case study`, 8)
 }
+
+export async function searchJobPostings(query: string): Promise<SerperResult[]> {
+  return search(`${query} job postings hiring trends 2024 number of jobs`, 6)
+}
+
+export async function searchWorkforceStats(query: string): Promise<SerperResult[]> {
+  return search(`${query} workforce statistics labor market professionals employees 2024`, 6)
+}

@@ -4,9 +4,12 @@ import {
   searchMarketData,
   searchUserComplaints,
   searchRegulatory,
-  searchCaseStudies
+  searchCaseStudies,
+  searchJobPostings,
+  searchWorkforceStats
 } from './serper'
-import type { ResearchContext, SearchResult } from '@/types/research'
+import { fetchTrendsForIdea } from './trends'
+import type { ResearchContext, SearchResult, RealMarketData } from '@/types/research'
 import type { Tool, FunctionDeclarationSchema } from '@google/generative-ai'
 import { SchemaType } from '@google/generative-ai'
 
@@ -76,10 +79,44 @@ async function executeFunction(name: string, args: Record<string, string>): Prom
 }
 
 /**
+ * Extract 2-3 short search keywords from the idea for Google Trends.
+ * e.g. "AI-powered pet health monitoring" → ["pet health monitoring", "pet health tech", "pet wearable"]
+ */
+function extractTrendsKeywords(idea: string): string[] {
+  // Take the core concept — strip common filler words
+  const cleaned = idea
+    .replace(/\b(ai[- ]powered|using ai|with ai|an app|a platform|a tool|that|for|the|and|or)\b/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  // Use the cleaned idea as primary keyword, plus shorter variants
+  const words = cleaned.split(' ').filter(w => w.length > 2)
+  const keywords: string[] = []
+
+  // Full cleaned phrase
+  if (cleaned.length > 0 && cleaned.length < 50) {
+    keywords.push(cleaned)
+  }
+
+  // First 3 words
+  if (words.length >= 3) {
+    keywords.push(words.slice(0, 3).join(' '))
+  }
+
+  // First 2 words
+  if (words.length >= 2) {
+    keywords.push(words.slice(0, 2).join(' '))
+  }
+
+  return keywords.slice(0, 3)
+}
+
+/**
  * Stage 1: Research
  *
  * Uses Gemini with function calling to orchestrate web searches via Serper,
  * then synthesizes results into a structured ResearchContext.
+ * Also fetches Google Trends data and targeted job/workforce stats in parallel.
  */
 export type ResearchProgressCallback = (message: string) => void
 
@@ -90,7 +127,17 @@ export async function conductResearch(
   const allSearchResults: SearchResult[] = []
   const emit = onProgress || (() => {})
 
-  // Start chat with Gemini, giving it search tools
+  // === PARALLEL TRACK 1: Google Trends + targeted market data searches ===
+  emit('Fetching Google Trends data...')
+  const trendsKeywords = extractTrendsKeywords(idea)
+
+  const realDataPromise = Promise.all([
+    fetchTrendsForIdea(trendsKeywords).catch(() => null),
+    searchJobPostings(idea).catch(() => []),
+    searchWorkforceStats(idea).catch(() => []),
+  ])
+
+  // === PARALLEL TRACK 2: Gemini agent with function calling ===
   emit('Initializing AI research agent...')
   const chat = flashModel.startChat({
     tools: searchTools,
@@ -157,6 +204,25 @@ Make at least 5 different searches across these categories. Be specific with you
     iterations++
   }
 
+  // === Wait for both parallel tracks to finish ===
+  emit('Gathering real market data from Google Trends...')
+  const [trendsResult, jobPostingStats, workforceStats] = await realDataPromise
+
+  // Add targeted search results to the pool
+  allSearchResults.push(...jobPostingStats, ...workforceStats)
+
+  const realMarketData: RealMarketData = {
+    googleTrends: trendsResult,
+    jobPostingStats,
+    workforceStats,
+  }
+
+  if (trendsResult) {
+    emit(`Google Trends: "${trendsResult.keyword}" — ${trendsResult.data.length} yearly data points`)
+  } else {
+    emit('Google Trends data unavailable, will estimate from research')
+  }
+
   emit('Synthesizing research into structured data...')
   // Now ask Gemini to synthesize the research into structured data
   const synthesisPrompt = `Based on all the research you've gathered, synthesize your findings into a structured JSON object with these exact fields:
@@ -212,6 +278,7 @@ Include 3-5 competitors, 3-5 user complaints, 2-3 case studies, and any relevant
     caseStudies: parsed.caseStudies || [],
     regulatory: parsed.regulatory || [],
     rawSearchResults: allSearchResults,
+    realMarketData,
     timestamp: new Date().toISOString()
   }
 }

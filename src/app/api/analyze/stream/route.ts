@@ -57,6 +57,7 @@ export async function POST(request: NextRequest) {
             snippet: r.snippet,
             link: r.link,
           })),
+          googleTrendsKeyword: research.realMarketData?.googleTrends?.keyword || null,
         })
 
         // Stage 2: Generate sections (vision/market/battlefield in parallel)
