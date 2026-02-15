@@ -35,8 +35,8 @@ export async function fetchGoogleTrends(keyword: string): Promise<YearlyTrendPoi
 
     const result = await googleTrends.interestOverTime({
       keyword,
-      startTime: new Date('2019-01-01'),
-      endTime: new Date('2024-12-31'),
+      startTime: new Date('2020-01-01'),
+      endTime: new Date('2025-12-31'),
       granularTimeResolution: false,
     })
 
@@ -57,7 +57,7 @@ export async function fetchGoogleTrends(keyword: string): Promise<YearlyTrendPoi
       yearlyMap[year].count++
     }
 
-    const years = ['2019', '2020', '2021', '2022', '2023', '2024']
+    const years = ['2020', '2021', '2022', '2023', '2024', '2025']
     const result_points: YearlyTrendPoint[] = []
 
     for (const year of years) {

@@ -66,18 +66,22 @@ export const JobPostingsChart = ({ section, data, currentPostings }: JobPostings
               <stop offset="100%" style={{ stopColor: colors.green, stopOpacity: 0 }} />
             </linearGradient>
           </defs>
-          {data.map((point, i) => {
-            const x = 50 + (i * 90)
-            const maxPostings = Math.max(...data.map(p => p.postings), 3500)
-            const y = 180 - (point.postings / maxPostings * 150)
-            return (
-              <g key={i}>
-                <rect x={x - 15} y={y} width="30" height={180 - y} fill="url(#jobGradient)" />
-                <text x={x} y={195} textAnchor="middle" fill={colors.textDim} fontSize="12">{point.year}</text>
-                <text x={x} y={y - 5} textAnchor="middle" fill={colors.green} fontSize="12" fontWeight="bold">{point.postings}</text>
-              </g>
-            )
-          })}
+          {(() => {
+            const maxPostings = Math.max(...data.map(p => p.postings), 1)
+            const spacing = data.length > 1 ? 400 / (data.length - 1) : 0
+            return data.map((point, i) => {
+              const x = 50 + (i * spacing)
+              const barHeight = (point.postings / maxPostings) * 140
+              const y = 175 - barHeight
+              return (
+                <g key={i}>
+                  <rect x={x - 15} y={y} width="30" height={barHeight} fill="url(#jobGradient)" stroke={colors.green} strokeWidth="1" rx="2" />
+                  <text x={x} y={195} textAnchor="middle" fill={colors.textDim} fontSize="12">{point.year}</text>
+                  <text x={x} y={y - 5} textAnchor="middle" fill={colors.green} fontSize="12" fontWeight="bold">{point.postings.toLocaleString()}</text>
+                </g>
+              )
+            })
+          })()}
         </svg>
       </div>
     </BaseChart>

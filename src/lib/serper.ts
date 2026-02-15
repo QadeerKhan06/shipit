@@ -43,7 +43,7 @@ export async function searchCompetitors(query: string): Promise<SerperResult[]> 
 }
 
 export async function searchMarketData(query: string): Promise<SerperResult[]> {
-  return search(`${query} market size TAM growth rate trends 2024`, 10)
+  return search(`${query} market size TAM growth rate trends 2025`, 10)
 }
 
 export async function searchUserComplaints(query: string): Promise<SerperResult[]> {
@@ -59,9 +59,9 @@ export async function searchCaseStudies(query: string): Promise<SerperResult[]> 
 }
 
 export async function searchJobPostings(query: string): Promise<SerperResult[]> {
-  return search(`${query} job postings hiring trends 2024 number of jobs`, 6)
+  return search(`${query} job postings hiring trends 2025 number of jobs`, 6)
 }
 
 export async function searchWorkforceStats(query: string): Promise<SerperResult[]> {
-  return search(`${query} workforce statistics labor market professionals employees 2024`, 6)
+  return search(`${query} workforce statistics labor market professionals employees 2025`, 6)
 }

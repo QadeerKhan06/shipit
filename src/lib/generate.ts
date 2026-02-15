@@ -139,20 +139,20 @@ Use these sources to ground your workforceCapacity numbers. Extract real statist
 {
   "market": {
     "trendsData": [
-      { "date": "2019", "value": 0 },
       { "date": "2020", "value": 0 },
       { "date": "2021", "value": 0 },
       { "date": "2022", "value": 0 },
       { "date": "2023", "value": 0 },
-      { "date": "2024", "value": 0 }
+      { "date": "2024", "value": 0 },
+      { "date": "2025", "value": 0 }
     ],
     "demandTrend": [
-      { "year": "2019", "value": 0 },
       { "year": "2020", "value": 0 },
       { "year": "2021", "value": 0 },
       { "year": "2022", "value": 0 },
       { "year": "2023", "value": 0 },
-      { "year": "2024", "value": 0 }
+      { "year": "2024", "value": 0 },
+      { "year": "2025", "value": 0 }
     ],
     "demandTrendSubtitle": "Short description of what the demand trend measures",
     "workforceSubtitle": "Short description of the workforce being measured, e.g. 'Licensed home health aides'",
@@ -163,12 +163,12 @@ Use these sources to ground your workforceCapacity numbers. Extract real statist
       { "city": "Chicago", "count": 145000 }
     ],
     "opportunityGap": [
-      { "year": "2019", "demand": 55, "supply": 20 },
-      { "year": "2020", "demand": 62, "supply": 28 },
-      { "year": "2021", "demand": 70, "supply": 35 },
-      { "year": "2022", "demand": 78, "supply": 42 },
-      { "year": "2023", "demand": 85, "supply": 48 },
-      { "year": "2024", "demand": 92, "supply": 55 }
+      { "year": "2020", "demand": 55, "supply": 20 },
+      { "year": "2021", "demand": 62, "supply": 28 },
+      { "year": "2022", "demand": 70, "supply": 35 },
+      { "year": "2023", "demand": 78, "supply": 42 },
+      { "year": "2024", "demand": 85, "supply": 48 },
+      { "year": "2025", "demand": 92, "supply": 55 }
     ],
     "fundingTotal": "$2.3B+",
     "jobPostings": 2500,
@@ -220,12 +220,12 @@ Use these sources to ground your workforceCapacity numbers. Extract real statist
       { "state": "TX", "complexity": "Low", "licensing": "Varies", "notes": "Fewer state-level requirements, federal rules still apply" }
     ],
     "hypeVsReality": [
-      { "year": "2019", "hype": 30, "reality": 25 },
-      { "year": "2020", "hype": 40, "reality": 33 },
-      { "year": "2021", "hype": 55, "reality": 42 },
-      { "year": "2022", "hype": 68, "reality": 56 },
-      { "year": "2023", "hype": 80, "reality": 68 },
-      { "year": "2024", "hype": 90, "reality": 80 }
+      { "year": "2020", "hype": 30, "reality": 25 },
+      { "year": "2021", "hype": 40, "reality": 33 },
+      { "year": "2022", "hype": 55, "reality": 42 },
+      { "year": "2023", "hype": 68, "reality": 56 },
+      { "year": "2024", "hype": 80, "reality": 68 },
+      { "year": "2025", "hype": 90, "reality": 80 }
     ]
   }
 }
@@ -236,7 +236,7 @@ ${workforceInstruction}
 IMPORTANT:
 - workforceSubtitle: a short phrase describing the workforce being counted (e.g., "Licensed home health aides", "Freelance web developers"). Be specific to the startup's domain.
 - workforceCapacity: cities with relevant available workforce. Use 3-5 cities. Use realistic, VARIED numbers grounded in the workforce data sources above. Do NOT invent numbers — base them on the real statistics provided.
-- opportunityGap: "demand" = unmet market need level (0-100), "supply" = existing solutions coverage (0-100). Use EXACTLY the field names "demand" and "supply". Include 5-6 data points from 2019-2024.
+- opportunityGap: "demand" = unmet market need level (0-100), "supply" = existing solutions coverage (0-100). Use EXACTLY the field names "demand" and "supply". Include 5-6 data points from 2020-2025.
 - jobPostings: current active job postings in this space (must be > 0). Ground this in the job posting data sources above.
 - userQuotes: Include 3-5 quotes from the research data. Use the actual platform name from each URL.
 - fundingTotal: total VC funding in this market. Use a realistic aggregate from research data.
