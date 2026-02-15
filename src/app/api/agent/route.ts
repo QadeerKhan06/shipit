@@ -7,10 +7,11 @@ export const maxDuration = 30
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { message, currentData, focusedBlock } = body as {
+    const { message, currentData, focusedBlock, sources } = body as {
       message: string
       currentData: SimulationData
       focusedBlock?: { section: string; label: string }
+      sources?: { title: string; snippet: string; link: string }[]
     }
 
     if (!message || !currentData) {
@@ -42,6 +43,11 @@ Return JSON: { "type": "question" | "edit", "reasoning": "brief explanation" }` 
 
     if (classification.type === 'question') {
       // Answer the question using the report data
+      // Build sources section for the prompt
+      const sourcesText = sources && sources.length > 0
+        ? `\n## Research Sources (actual URLs from our web research)\n${sources.slice(0, 30).map((s, i) => `${i + 1}. [${s.title}](${s.link}) — ${s.snippet}`).join('\n')}`
+        : ''
+
       const answerResult = await flashModel.generateContent({
         contents: [{
           role: 'user',
@@ -49,6 +55,7 @@ Return JSON: { "type": "question" | "edit", "reasoning": "brief explanation" }` 
 
 ## Report Data
 ${JSON.stringify(currentData, null, 2)}
+${sourcesText}
 
 ${focusedBlock ? `The user is currently looking at: "${focusedBlock.label}" in the "${focusedBlock.section}" section. Focus your answer on this specific block's data.` : ''}
 
@@ -57,7 +64,7 @@ ${focusedBlock ? `The user is currently looking at: "${focusedBlock.label}" in t
 
 RULES:
 - ALWAYS reference specific numbers, names, and findings from the report data above
-- If asked about sources: the data comes from Serper web search (Google results, job postings, funding databases, user review platforms). Charts like "Hype vs Reality" and "Demand Trend" are derived from search interest indices and industry report aggregation. Competitor data is from Crunchbase/public funding records. User quotes are from Reddit, G2, Trustpilot, app stores, and forums.
+- If asked about sources/where data comes from: cite the ACTUAL research source URLs listed above. Format as "Source: [title](url)". These are real web pages we searched during research. If no sources are provided, explain the data was synthesized from web search results.
 - If asked about positioning: reference the competitor map coordinates, the strategic gap/risk analysis, saturation score, and moat analysis from the report
 - If asked "how" or "what should I do": give actionable advice based on the strengths, risks, next steps, and case studies in the report
 - Be direct and specific (3-5 sentences). No filler. Cite exact data points.

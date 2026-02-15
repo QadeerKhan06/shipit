@@ -52,6 +52,11 @@ export async function POST(request: NextRequest) {
         sendEvent(controller, 'research_complete', {
           searchResultCount: research.rawSearchResults.length,
           competitorsFound: research.competitors.length,
+          sources: research.rawSearchResults.map(r => ({
+            title: r.title,
+            snippet: r.snippet,
+            link: r.link,
+          })),
         })
 
         // Stage 2: Generate sections (vision/market/battlefield in parallel)

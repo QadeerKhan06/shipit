@@ -43,6 +43,13 @@ export const ALL_OPTIONAL_BLOCKS = Object.values(OPTIONAL_BLOCKS_BY_SECTION).fla
 
 const SECTIONS: SectionName[] = ['vision', 'market', 'battlefield', 'verdict', 'advisors']
 
+// Research source type (from raw search results)
+interface ResearchSource {
+  title: string
+  snippet: string
+  link: string
+}
+
 // Context type
 interface SimulationContextType {
   // Data (progressive — starts empty, fills in per section)
@@ -51,6 +58,7 @@ interface SimulationContextType {
   sectionStatus: Record<SectionName, SectionLoadStatus>
   pipelineMessages: PipelineMessage[]
   error: string | null
+  researchSources: ResearchSource[]
 
   // Navigation
   activeSection: SectionName
@@ -74,6 +82,8 @@ interface SimulationContextType {
   // Agent panel
   agentMessages: AgentMessage[]
   addAgentMessage: (message: AgentMessage) => void
+  sendAgentMessage: (message: string, focusedBlock?: { section: string; label: string }) => Promise<void>
+  isAgentThinking: boolean
 
   // API
   reportId: string | null
@@ -98,6 +108,7 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
   const [sectionStatus, setSectionStatus] = useState<Record<SectionName, SectionLoadStatus>>(makeInitialSectionStatus)
   const [pipelineMessages, setPipelineMessages] = useState<PipelineMessage[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [researchSources, setResearchSources] = useState<ResearchSource[]>([])
 
   // Navigation
   const [activeSection, setActiveSection] = useState<SectionName>('vision')
@@ -116,12 +127,21 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
 
   // Agent messages
   const [agentMessages, setAgentMessages] = useState<AgentMessage[]>([])
+  const [isAgentThinking, setIsAgentThinking] = useState(false)
 
   // Deploying
   const [isDeploying, setIsDeploying] = useState(false)
 
   // Track whether first section navigated to
   const hasNavigatedRef = useRef(false)
+
+  // Refs for sendAgentMessage to read latest state without re-creating
+  const simulationRef = useRef(simulation)
+  simulationRef.current = simulation
+  const researchSourcesRef = useRef(researchSources)
+  researchSourcesRef.current = researchSources
+  const focusedBoxRef = useRef(focusedBox)
+  focusedBoxRef.current = focusedBox
 
   const toggleBlock = useCallback((blockId: string) => {
     setEnabledBlocks(prev => {
@@ -179,6 +199,55 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
     setSectionStatus(prev => ({ ...prev, [section]: 'complete' }))
   }, [])
 
+  // ========== SHARED AGENT SEND ==========
+  const sendAgentMessage = useCallback(async (
+    message: string,
+    focusedBlock?: { section: string; label: string }
+  ) => {
+    const sim = simulationRef.current
+    if (!sim) return
+
+    setAgentMessages(prev => [...prev, { role: 'user', content: message }])
+    setIsAgentThinking(true)
+
+    try {
+      const response = await fetch('/api/agent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message,
+          currentData: sim,
+          focusedBlock: focusedBlock || (focusedBoxRef.current ? { section: focusedBoxRef.current.section, label: focusedBoxRef.current.label } : undefined),
+          sources: researchSourcesRef.current,
+        })
+      })
+
+      if (!response.ok) throw new Error('Agent request failed')
+
+      const data = await response.json()
+
+      if (data.type === 'edit' && data.affectedSections) {
+        setAgentMessages(prev => [...prev, {
+          role: 'agent',
+          content: data.response,
+          metadata: {
+            type: 'edit',
+            affectedSections: data.affectedSections,
+            editDescription: data.editDescription,
+            editInstruction: data.editInstruction || data.editDescription || message,
+          }
+        }])
+      } else {
+        setAgentMessages(prev => [...prev, { role: 'agent', content: data.response }])
+      }
+    } catch (err) {
+      console.error('Agent error:', err)
+      setAgentMessages(prev => [...prev, { role: 'agent', content: 'Sorry, I encountered an error. Please try again.' }])
+    } finally {
+      setIsAgentThinking(false)
+    }
+  }, [])
+
   // ========== STREAMING ANALYSIS ==========
   const startAnalysis = useCallback((idea: string) => {
     // Reset state
@@ -189,6 +258,7 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
     setError(null)
     setReportId(null)
     setAgentMessages([])
+    setResearchSources([])
     setFocusedBox(null)
     setActiveSection('vision')
     hasNavigatedRef.current = false
@@ -277,6 +347,10 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
         case 'research_complete': {
           const count = data.searchResultCount as number
           const competitors = data.competitorsFound as number
+          // Store research sources for agent citations
+          if (Array.isArray(data.sources)) {
+            setResearchSources(data.sources as ResearchSource[])
+          }
           addPipelineMessage({
             message: `Research complete — ${count} sources, ${competitors} competitors found`,
             status: 'complete',
@@ -407,6 +481,7 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
         sectionStatus,
         pipelineMessages,
         error,
+        researchSources,
         activeSection,
         setActiveSection,
         focusedBox,
@@ -420,6 +495,8 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
         setCurrentMarketIndex,
         agentMessages,
         addAgentMessage,
+        sendAgentMessage,
+        isAgentThinking,
         reportId,
         startAnalysis,
         isSectionReady,

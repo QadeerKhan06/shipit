@@ -20,37 +20,29 @@ export interface DeepDiveButtonProps {
  * for deeper analysis and Q&A.
  */
 export const DeepDiveButton = ({ blockLabel, context, question }: DeepDiveButtonProps) => {
-  const { addAgentMessage } = useSimulation()
+  const { sendAgentMessage, isAgentThinking, pipelineStatus } = useSimulation()
 
-  // Use contextual question or fall back to generic
   const displayQuestion = question || `Tell me more about this`
   const fullQuestion = question || `Tell me more about "${blockLabel}". What should I know?`
 
-  // Truncate display text for button (allow more space)
   const truncatedDisplay = displayQuestion.length > 50
     ? displayQuestion.slice(0, 50) + '...'
     : displayQuestion
 
+  const disabled = isAgentThinking || (pipelineStatus !== 'complete' && pipelineStatus !== 'idle')
+
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation() // Prevent card focus
+    if (disabled) return
 
-    // Add user message with the contextual question
-    addAgentMessage({
-      role: 'user',
-      content: fullQuestion
-    })
-
-    // Add agent response (placeholder - will be replaced by real API call)
-    addAgentMessage({
-      role: 'agent',
-      content: `Analyzing "${blockLabel}"... I'll explain the key insights and what they mean for your startup.`,
-      metadata: { blockLabel, context }
-    })
+    const section = (context.section as string) || ''
+    sendAgentMessage(fullQuestion, section ? { section, label: blockLabel } : undefined)
   }
 
   return (
     <button
       onClick={handleClick}
+      disabled={disabled}
       title={displayQuestion}
       style={{
         display: 'inline-flex',
@@ -59,18 +51,21 @@ export const DeepDiveButton = ({ blockLabel, context, question }: DeepDiveButton
         padding: '0.375rem 0.625rem',
         fontSize: '0.65rem',
         fontFamily: 'JetBrains Mono, monospace',
-        color: colors.cyan,
+        color: disabled ? colors.textDim : colors.cyan,
         backgroundColor: `${colors.cyan}10`,
         border: `1px solid ${colors.cyan}30`,
         borderRadius: '2px',
-        cursor: 'pointer',
+        cursor: disabled ? 'not-allowed' : 'pointer',
         transition: 'all 0.15s ease',
         textAlign: 'left',
-        whiteSpace: 'nowrap'
+        whiteSpace: 'nowrap',
+        opacity: disabled ? 0.5 : 1,
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.backgroundColor = `${colors.cyan}20`
-        e.currentTarget.style.borderColor = `${colors.cyan}60`
+        if (!disabled) {
+          e.currentTarget.style.backgroundColor = `${colors.cyan}20`
+          e.currentTarget.style.borderColor = `${colors.cyan}60`
+        }
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.backgroundColor = `${colors.cyan}10`

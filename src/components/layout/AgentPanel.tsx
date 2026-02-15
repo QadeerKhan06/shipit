@@ -25,23 +25,22 @@ function statusIcon(status: PipelineMessage['status']): { icon: string; color: s
 
 export const AgentPanel = () => {
   const {
-    simulation,
     pipelineStatus,
     pipelineMessages,
     agentMessages,
-    addAgentMessage,
     focusedBox,
     regenerateSections,
     isDeploying,
+    sendAgentMessage,
+    isAgentThinking,
   } = useSimulation()
 
   const [inputValue, setInputValue] = useState('')
   const [inputFocused, setInputFocused] = useState(false)
-  const [isThinking, setIsThinking] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const isPipelineActive = pipelineStatus !== 'complete' && pipelineStatus !== 'idle' && pipelineStatus !== 'error'
-  const inputDisabled = isPipelineActive || isThinking || isDeploying
+  const inputDisabled = isPipelineActive || isAgentThinking || isDeploying
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -52,51 +51,11 @@ export const AgentPanel = () => {
   }, [agentMessages, pipelineMessages])
 
   const handleSendMessage = async () => {
-    if (!inputValue.trim() || inputDisabled || !simulation) return
-
+    if (!inputValue.trim() || inputDisabled) return
     const userMessage = inputValue.trim()
-    addAgentMessage({ role: 'user', content: userMessage })
     setInputValue('')
-    setIsThinking(true)
-
-    try {
-      const response = await fetch('/api/agent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: userMessage,
-          currentData: simulation,
-          focusedBlock: focusedBox ? { section: focusedBox.section, label: focusedBox.label } : undefined
-        })
-      })
-
-      if (!response.ok) {
-        throw new Error('Agent request failed')
-      }
-
-      const data = await response.json()
-
-      if (data.type === 'edit' && data.affectedSections) {
-        addAgentMessage({
-          role: 'agent',
-          content: data.response,
-          metadata: {
-            type: 'edit',
-            affectedSections: data.affectedSections,
-            editDescription: data.editDescription,
-            editInstruction: data.editInstruction || data.editDescription || userMessage,
-          }
-        })
-      } else {
-        addAgentMessage({ role: 'agent', content: data.response })
-      }
-    } catch (error) {
-      console.error('Agent error:', error)
-      addAgentMessage({ role: 'agent', content: 'Sorry, I encountered an error. Please try again.' })
-    } finally {
-      setIsThinking(false)
-      setTimeout(() => scrollToBottom(), 50)
-    }
+    await sendAgentMessage(userMessage)
+    setTimeout(() => scrollToBottom(), 50)
   }
 
   const handleDeploy = async (affectedSections: string[], editInstruction: string) => {
@@ -109,7 +68,7 @@ export const AgentPanel = () => {
   const getPlaceholder = () => {
     if (isPipelineActive) return 'Analysis in progress...'
     if (isDeploying) return 'Deploying changes...'
-    if (isThinking) return 'Thinking...'
+    if (isAgentThinking) return 'Thinking...'
     return 'Ask about the analysis...'
   }
 
@@ -275,7 +234,7 @@ export const AgentPanel = () => {
         ))}
 
         {/* Thinking indicator */}
-        {isThinking && (
+        {isAgentThinking && (
           <div>
             <div style={{
               fontFamily: 'JetBrains Mono, monospace',
